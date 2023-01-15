@@ -1,2 +1,3 @@
-# DevOps-Jenkins-Workshop
-Jenkins 2-day Workshop for Keysight 
+# Jenkins Workshop 16 - 17 Jan
+
+2-day Workshop for Keysight 
