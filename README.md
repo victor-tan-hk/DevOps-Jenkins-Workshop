@@ -1,3 +1,3 @@
-# Jenkins Workshop 16 - 17 Jan
+# Jenkins for CI / CD Workshop 27 - 28 Feb
 
-2-day Workshop for Keysight 
+
