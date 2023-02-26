@@ -1,0 +1,36 @@
+
+pipeline {
+  
+  agent any
+  
+  stages {
+
+    stage('Demo bat single string statements') {
+      steps {
+      
+        bat "echo 'Current active account is'"
+        bat "whoami"
+        bat "echo 'Creating a new directory if it does not exist and a new file'"
+        bat "if not exist awesome mkdir awesome"
+        
+      }
+    }
+
+    stage('Demo bat multiline string') {
+      steps {
+
+        bat '''
+          cd awesome
+          echo "I love Jenkins !" > newfile.txt
+          dir
+          chdir
+          echo "The content of newfile is "
+          type newfile.txt
+        '''
+      } 
+    }
+
+  }
+  
+}
+

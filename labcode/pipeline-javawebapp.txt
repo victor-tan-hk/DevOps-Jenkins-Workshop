@@ -1,0 +1,37 @@
+
+pipeline {
+
+  agent any
+
+  tools {
+    maven 'jenkins-maven' 
+  }
+
+  stages {
+  
+    stage('SCM Checkout') {
+      steps {
+      
+          git 'copy and paste your GitHub HTTPs URL here'            
+      }
+    }
+    
+    stage('Build') {
+      steps {
+        sh 'mvn clean package'
+        sh 'mv webapp/target/webapp.war webapp/target/userx.war'
+      }
+    }
+    
+    stage('Deploy') {
+      steps {
+        deploy adapters: [tomcat9(credentialsId: 'tomcat-deployer', path: '', url: 'http://13.212.73.45:8181/')], contextPath: null, war: '**/*.war'
+      }
+    }    
+  
+  }
+    
+
+}
+
+

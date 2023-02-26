@@ -1,0 +1,40 @@
+
+pipeline {
+  
+  //Setting agent as any means Jenkins
+  // will pick any available agent
+  // In this case, we have only one agent
+  // the main Jenkins controller
+
+  agent any
+  
+  stages {
+
+    stage('Checkout') {
+      steps {
+        echo 'Functionality to checkout code base from remote repo'
+      }
+    }
+
+    stage('Build') {
+      steps {
+        echo 'Use build tool to compile'
+      } 
+    }
+
+    stage('Test') {
+      steps {
+          echo 'Use build tool to run unit tests on successfully compiled code'
+      }
+    }
+
+    stage('Deploy') {
+      steps {
+          echo 'deploy tested code to staging and / or production servers'
+      }
+    }        
+
+  }
+  
+}
+

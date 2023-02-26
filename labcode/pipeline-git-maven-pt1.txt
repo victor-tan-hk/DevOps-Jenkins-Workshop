@@ -1,0 +1,17 @@
+
+pipeline {
+
+  agent any
+
+  stages {
+  
+    stage('SCM Checkout') {
+      steps {
+      
+          git 'copy and paste your GitHub HTTPs URL here'            
+      }
+    }
+  }
+}
+
+

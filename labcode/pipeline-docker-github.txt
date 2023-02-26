@@ -1,0 +1,41 @@
+
+pipeline {
+    agent none
+
+    stages {
+        stage('SCM Checkout') {
+            agent any
+            steps {
+                git 'copy and paste your GitHub HTTPs URL here'                        
+            }
+        }
+        stage('Build') {
+            agent {
+              docker { image  'maven:3.8.7-eclipse-temurin-17' }
+            }
+            steps {
+                sh 'mvn clean package'  
+            }
+        }
+        stage('Test') {
+            agent {
+              docker { image  'maven:3.8.7-eclipse-temurin-17' }
+            }
+            steps {
+                sh 'mvn test'  
+            }
+        }
+        
+        stage('Deploy') {
+            agent {
+              docker { image  'eclipse-temurin:17.0.6_10-jdk-jammy' }
+            }
+            steps {
+                sh 'java -jar target/my-app-1.0-SNAPSHOT.jar'            
+            }
+        }
+    }
+  
+}
+
+

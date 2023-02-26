@@ -1,0 +1,27 @@
+
+pipeline {
+  
+  agent any
+  
+  stages {
+
+    stage('Demo platform independent steps') {
+      steps {
+        echo 'Creating a new directory if it does not exist and a new file'
+
+        dir("awesome") {
+
+        writeFile(file: 'newfile.txt', text : 'I love Jenkins !') 
+        echo 'You are currently in directory' 
+        echo pwd()
+        echo 'The contents of the newfile.txt is'
+        echo readFile(file : 'newfile.txt')
+
+        }
+      }
+    }
+
+  }
+  
+}
+
