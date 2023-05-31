@@ -1,3 +1,3 @@
-# Jenkins for CI / CD Workshop 27 - 28 Feb
+# Jenkins for CI / CD Workshop May 2023
 
 
