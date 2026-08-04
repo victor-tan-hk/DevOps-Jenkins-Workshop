@@ -1,0 +1,33 @@
+pipeline {
+
+
+    /*
+    * Experiment with different dotnet SDK image versions  
+    * in the agent / docker section
+    *
+    * image 'mcr.microsoft.com/dotnet/sdk:10.0'
+    * image 'mcr.microsoft.com/dotnet/sdk:9.0'
+    * image 'mcr.microsoft.com/dotnet/sdk:8.0'
+    *
+    * This demonstrates that the stages can be configured to run 
+    * within a Docker container run from a specified image                 
+    * downloaded from DockerHub
+    */
+
+
+    agent {
+        docker {
+            image 'mcr.microsoft.com/dotnet/sdk:10.0'
+        }
+    }
+
+    stages {
+        stage('Environment Info') {
+            steps {
+                sh 'dotnet --info'
+            }
+        }
+    }
+
+
+}

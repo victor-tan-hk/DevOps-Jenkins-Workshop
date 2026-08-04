@@ -1,0 +1,29 @@
+# .NET build output
+**/bin/
+**/obj/
+
+# Test output
+TestResults/
+test-results/
+*.trx
+*.coverage
+*.coveragexml
+
+# Visual Studio local files
+.vs/
+*.user
+*.suo
+
+# VS Code local settings
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/settings.json
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+
+# Temporary and log files
+*.tmp
+*.log

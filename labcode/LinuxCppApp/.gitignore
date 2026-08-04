@@ -1,0 +1,47 @@
+# CMake build directories
+build/
+cmake-build-*/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+CTestTestfile.cmake
+Makefile
+cmake_install.cmake
+install_manifest.txt
+
+# CPack generated files
+_CPack_Packages/
+*.tar.gz
+*.zip
+*.deb
+*.rpm
+
+# Test output
+Testing/
+test-results/
+*.xml
+
+# Compiled output
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.exe
+*.out
+
+# Visual Studio
+.vs/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
+# VS Code local settings
+.vscode/
+
+# Operating-system files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,1 @@
+This message was loaded from a cross-platform application resource.

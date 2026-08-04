@@ -1,0 +1,247 @@
+pipeline {
+
+    // Run the pipeline on any available Jenkins agent 
+    // capable of accepting the job.
+    //
+    // In simplest case, this will be the Jenkins controller 
+    // which is also configured to run builds if there is 
+    // no separate agent
+
+    agent any
+
+    /*
+     * Environment variables are accessible throughout the Pipeline.
+     *
+     * Adjust these values accordingly 
+     */
+    environment {
+
+        /*
+        * Place the URL for your remote repo (GitHub, BitBucket) here
+        */
+        REMOTE_REPO_URL = 'https://github.com/victor-tan-hk/LinuxCppApp.git'
+
+        BUILD_DIR = 'build'
+        BUILD_TYPE = 'Release'
+        TEST_RESULTS_DIR = 'test-results'
+        TEST_RESULTS_FILE = 'ctest-results.xml'
+
+    }
+
+
+    stages {
+
+        stage('SCM Checkout') {
+            steps {
+
+                git "$REMOTE_REPO_URL"
+            
+            }
+        }
+
+        stage('Verify environment') {
+            steps {
+                /*
+                 * Check necessary tools: gcc, g++, CMake, CTest, CPack 
+                 * required for the build are installed Remove build artifacts left in the current workspace
+                 * on the Jenkins agent
+                 *
+                 */
+                sh '''
+
+                    required_tools="gcc g++ cmake ctest cpack"
+
+                    for tool in ${required_tools}; do
+                        if ! command -v "${tool}" >/dev/null 2>&1; then
+                            echo "ERROR: Required tool '${tool}' is not installed or not in PATH."
+                            exit 1
+                        fi
+                    done
+ 
+
+                '''
+            }
+        }
+
+        stage('Configure') {
+            steps {
+
+                /*
+                 * Remove output from any earlier build
+                 *
+                 * Configure the build for the project 
+                 * with CMake                  
+                 *
+                 */                
+
+                sh '''
+
+                    rm -rf "${BUILD_DIR}"
+
+                    cmake \
+                        -S . \
+                        -B "${BUILD_DIR}" \
+                        -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
+                        -DBUILD_TESTING=ON
+
+                '''
+            }
+        }
+
+
+        stage('Build') {
+            steps {
+
+                /*
+                 * Compiling the application and test code
+                 *
+                 * Configure the build for the project 
+                 * with CMake                  
+                 *
+                 */                    
+
+                sh '''
+
+                    cmake \
+                        --build "${BUILD_DIR}" \
+                        --config "${BUILD_TYPE}" \
+                        --parallel
+
+                    echo
+                    echo "Generated application executable:"
+                    ls -lh "${BUILD_DIR}/linux-cpp-app"
+
+                    echo
+                    echo "Generated unit-test executable:"
+                    find "${BUILD_DIR}" \
+                        -type f \
+                        -name 'linux_cpp_app_tests' \
+                        -print
+                '''
+            }
+        }
+
+        stage('Unit Test') {
+            steps {
+
+                /*
+                 * Run unit tests using Google Test via CTest 
+                 * and generate XML test results
+                 * 
+                 * catchError allows the pipeline to continue to the Package,
+                 * Publish Test Results and Archive Build Artifacts stages when
+                 * a test fails.
+                 *
+                 * Jenkins still records the test stage and overall build as
+                 * unsuccessful/unstable as appropriate.
+                 */
+                catchError(
+                    buildResult: 'UNSTABLE',
+                    stageResult: 'FAILURE',
+                    message: 'One or more C++ unit tests failed.'
+                ) {
+                    sh '''
+
+                        mkdir -p "${BUILD_DIR}/${TEST_RESULTS_DIR}"
+
+                        ctest \
+                            --test-dir "${BUILD_DIR}" \
+                            --build-config "${BUILD_TYPE}" \
+                            --output-on-failure \
+                            --output-junit "${TEST_RESULTS_DIR}/${TEST_RESULTS_FILE}"
+
+                        echo
+                        echo "JUnit-compatible test report:"
+                        ls -lh "${BUILD_DIR}/${TEST_RESULTS_DIR}/${TEST_RESULTS_FILE}"
+                    '''
+                }
+            }
+        }
+
+
+        stage('Package') {
+            steps {
+
+                /*
+                 * Creating a distributable Linux archive with CPack
+                 *
+                 *
+                 */                    
+
+
+                sh '''
+
+                    cmake \
+                        --build "${BUILD_DIR}" \
+                        --config "${BUILD_TYPE}" \
+                        --target package
+
+                    echo
+                    echo "Generated package:"
+                    find "${BUILD_DIR}" \
+                        -maxdepth 1 \
+                        -type f \
+                        -name '*.tar.gz' \
+                        -exec ls -lh {} \\;
+                '''
+            }
+        }
+
+
+    }
+
+    /*
+     * Pipeline-level post actions run after the stages have completed.
+     *
+     * The "always" condition means that Jenkins attempts to process the test
+     * results regardless of whether the pipeline succeeds, fails or becomes
+     * unstable.
+     *
+     */
+
+    post {
+        always {
+
+            /*
+
+            *
+            * Actual test failures are reported by JUnit in Jenkins UI
+            *
+            * Allows observation of test trends over time 
+            */
+
+            junit(
+                testResults: "${BUILD_DIR}/${TEST_RESULTS_DIR}/*.xml",
+                allowEmptyResults: false,
+                keepLongStdio: true
+            )
+
+
+
+            /*
+             * Archiving executable, package and test reports
+             *
+             * The archived files are retained as artifacts belonging to
+             * this specific Jenkins build and can be downloaded through
+             * the Jenkins build UI.
+             */
+
+            archiveArtifacts(
+                artifacts: '''
+                    build/linux-cpp-app,
+                    build/*.tar.gz,
+                    build/test-results/*.xml
+                '''.stripIndent().trim().replaceAll('\\n', ''),
+                allowEmptyArchive: true,
+                fingerprint: true,
+                onlyIfSuccessful: false
+            )
+
+        }
+    }
+
+
+
+
+
+}

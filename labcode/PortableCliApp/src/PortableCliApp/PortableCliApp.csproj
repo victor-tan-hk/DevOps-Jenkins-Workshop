@@ -1,0 +1,71 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      Generate a console executable rather than a reusable class library.
+    -->
+    <OutputType>Exe</OutputType>
+
+    <!--
+      Use the cross-platform .NET 10 target framework.
+
+      Do not use net10.0-windows because this project must also build
+      and run on Ubuntu.
+    -->
+    <TargetFramework>net10.0</TargetFramework>
+
+    <!--
+      Automatically import commonly used .NET namespaces.
+    -->
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!--
+      Enable compiler checking for potentially null references.
+    -->
+    <Nullable>enable</Nullable>
+
+    <!--
+      Enable the analyzers included with the .NET SDK.
+    -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+
+    <!--
+      Use the latest analysis rules supported by the installed SDK.
+    -->
+    <AnalysisLevel>latest</AnalysisLevel>
+
+    <!--
+      Fail the build when compiler or analyzer warnings are generated.
+
+      This is useful for a demonstration project because portability or
+      quality warnings should not be silently ignored.
+    -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!--
+      Explicitly turn the platform compatibility warning into an error.
+
+      CA1416 identifies unguarded calls to platform-specific APIs, such
+      as APIs that are supported only on Windows.
+    -->
+    <WarningsAsErrors>$(WarningsAsErrors);CA1416</WarningsAsErrors>
+
+    <!--
+      Produce repeatable compiler output when inputs are unchanged.
+    -->
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Include all text files under the data directory as application
+      content and copy them into the build output.
+
+      PreserveNewest avoids copying an unchanged file on every build.
+    -->
+    <Content Include="data/**/*.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

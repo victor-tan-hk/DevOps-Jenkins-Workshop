@@ -1,0 +1,127 @@
+pipeline {
+
+    // Run the pipeline on any available Jenkins agent 
+    // capable of accepting the job.
+    //
+    // In simplest case, this will be the Jenkins controller 
+    // which we assume also has Docker installed on it 
+    // to run the various Docker commands in the stages
+
+    agent any
+
+
+    /*
+     * Environment variables are accessible throughout the Pipeline.
+     *
+     * Adjust these values accordingly 
+     */
+    environment {
+
+        /*
+        * Place the URL for your remote repo (GitHub, BitBucket) here
+        */
+        REMOTE_REPO_URL = 'https://github.com/victor-tan-hk/DotNetWebApp.git'
+
+        /*
+         * Replace "your-dockerhub-username" with your Docker Hub
+         * account name.
+         *
+         */
+        DOCKER_IMAGE = 'workshopsrepos/dotnetwebapp'
+
+        /*
+         * ID of a Jenkins Username with password credential.
+         *
+         * Username: your Docker Hub username
+         * Password: a Docker Hub personal access token
+         */
+        DOCKERHUB_CREDENTIALS = 'dockerhub-credentials'
+            
+    }
+
+    /*
+    * This version has no deploy, only publish 
+    *
+    * This pipeline job will complete in a usual manner
+    *
+    * There is no need to explicitly abort it from the UI
+    *
+    */ 
+
+    stages {
+
+        stage('SCM Checkout') {
+            steps {
+
+                git "$REMOTE_REPO_URL"
+            
+            }
+        }
+
+       stage('Build Docker Image') {
+            steps {
+                /*
+                * Build the Dockerfile located in the repository root.
+                *
+                * The Dockerfile itself performs:
+                *   - dotnet restore
+                *   - dotnet build
+                *   - dotnet test
+                *   - dotnet publish
+                *   - creation of the final runtime image
+                *
+                * Two tags are assigned:
+                *   - Jenkins build number, such as :27
+                *   - latest
+                */
+                sh '''
+                    docker build \
+                        --tag "${DOCKER_IMAGE}:${BUILD_NUMBER}" \
+                        --tag "${DOCKER_IMAGE}:latest" \
+                        .
+                '''
+                
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                /*
+                 * Retrieve the Docker Hub username and personal access
+                 * token from the Jenkins credentials store.
+                 */
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: env.DOCKERHUB_CREDENTIALS,
+                        usernameVariable: 'DOCKERHUB_USERNAME',
+                        passwordVariable: 'DOCKERHUB_TOKEN'
+                    )
+                ]) 
+
+                // Pass the token through standard input so that it is
+                // not written directly into the command line.
+
+                
+                {
+                    sh '''
+                        echo "${DOCKERHUB_TOKEN}" |
+                            docker login \
+                                --username "${DOCKERHUB_USERNAME}" \
+                                --password-stdin
+
+                        docker push "${DOCKER_IMAGE}:${BUILD_NUMBER}"
+
+                        docker push "${DOCKER_IMAGE}:latest"
+
+                    '''
+                }
+            }
+        }    
+
+    
+    
+    
+    }
+
+
+}

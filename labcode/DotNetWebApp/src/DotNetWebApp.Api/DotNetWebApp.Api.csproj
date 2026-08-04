@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <!-- Compile the project for .NET 10. -->
+    <TargetFramework>net10.0</TargetFramework>
+
+    <!-- Add common namespace imports automatically. -->
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Enable nullable-reference-type analysis. -->
+    <Nullable>enable</Nullable>
+
+
+  </PropertyGroup>
+
+</Project>

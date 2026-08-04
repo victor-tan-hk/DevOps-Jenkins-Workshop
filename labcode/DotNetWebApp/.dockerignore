@@ -1,0 +1,23 @@
+# Git metadata
+.git
+.gitignore
+
+# Jenkins files that are not required inside the image
+Jenkinsfile
+
+# .NET build output
+**/bin/
+**/obj/
+
+# Test output
+TestResults/
+test-results/
+*.trx
+*.coverage
+*.coveragexml
+
+# IDE and editor files
+.vs/
+.vscode/
+.idea/
+

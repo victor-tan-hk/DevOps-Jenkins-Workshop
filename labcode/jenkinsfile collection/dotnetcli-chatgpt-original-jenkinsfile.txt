@@ -1,0 +1,354 @@
+pipeline {
+    /*
+     * Run this Pipeline on any available Jenkins agent.
+     *
+     * For a production Jenkins environment, it is preferable to assign
+     * a label such as:
+     *
+     *     agent { label 'dotnet10' }
+     *
+     * This ensures that Jenkins selects an agent where .NET SDK 10
+     * has been installed.
+     */
+    agent any
+
+    /*
+     * Prevent multiple builds of the same Pipeline from running
+     * simultaneously.
+     *
+     * This is particularly useful when the deployment stage writes
+     * files into a shared deployment directory.
+     */
+    options {
+        disableConcurrentBuilds()
+
+        /*
+         * Retain only a reasonable number of historical builds.
+         */
+        buildDiscarder(
+            logRotator(
+                numToKeepStr: '20',
+                artifactNumToKeepStr: '10'
+            )
+        )
+
+        /*
+         * Add timestamps to the Jenkins console output.
+         */
+        timestamps()
+    }
+
+    /*
+     * Allow the person running the job to decide whether the deployment
+     * stage should execute.
+     *
+     * Normal CI builds can leave this parameter unchecked.
+     */
+    parameters {
+        booleanParam(
+            name: 'DEPLOY_APPLICATION',
+            defaultValue: false,
+            description: 'Deploy the published application after a successful build'
+        )
+    }
+
+    /*
+     * Environment variables used throughout the Pipeline.
+     *
+     * Adjust these paths if your actual repository structure differs.
+     */
+    environment {
+        CONFIGURATION = 'Release'
+
+        SOLUTION_FILE = 'PortableCliApp.sln'
+
+        APP_PROJECT =
+            'src/PortableCliApp/PortableCliApp.csproj'
+
+        TEST_PROJECT =
+            'tests/PortableCliApp.Tests/PortableCliApp.Tests.csproj'
+
+        PUBLISH_DIRECTORY =
+            "${WORKSPACE}/artifacts/publish"
+
+        TEST_RESULTS_DIRECTORY =
+            "${WORKSPACE}/artifacts/test-results"
+
+        /*
+         * This is an example deployment location on the Jenkins host.
+         *
+         * The Jenkins service account must have permission to write
+         * to this directory.
+         */
+        DEPLOY_DIRECTORY =
+            '/opt/portable-cli-app'
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                /*
+                 * Checkout the exact repository and branch configured
+                 * in the Jenkins Pipeline job.
+                 */
+                checkout scm
+            }
+        }
+
+        stage('Verify Environment') {
+            steps {
+                sh '''
+                    set -eux
+
+                    echo "Jenkins workspace:"
+                    pwd
+
+                    echo "Installed .NET SDKs:"
+                    dotnet --list-sdks
+
+                    echo "Selected .NET SDK:"
+                    dotnet --version
+
+                    echo "Repository contents:"
+                    ls -la
+
+                    echo "Solution information:"
+                    dotnet sln "$SOLUTION_FILE" list
+                '''
+            }
+        }
+
+        stage('Clean') {
+            steps {
+                /*
+                 * Remove output left in the current workspace from a
+                 * previous run.
+                 *
+                 * dotnet clean removes normal build output.
+                 * The artifacts directory is recreated from scratch.
+                 */
+                sh '''
+                    set -eux
+
+                    dotnet clean "$SOLUTION_FILE" \
+                        --configuration "$CONFIGURATION"
+
+                    rm -rf artifacts
+                    mkdir -p "$PUBLISH_DIRECTORY"
+                    mkdir -p "$TEST_RESULTS_DIRECTORY"
+                '''
+            }
+        }
+
+        stage('Restore') {
+            steps {
+                /*
+                 * Download the NuGet packages required by the solution.
+                 *
+                 * Restore is made explicit so that dependency-restoration
+                 * failures appear in their own Jenkins stage.
+                 */
+                sh '''
+                    set -eux
+
+                    dotnet restore "$SOLUTION_FILE"
+                '''
+            }
+        }
+
+        stage('Build') {
+            steps {
+                /*
+                 * Build the application and test project in Release mode.
+                 *
+                 * --no-restore prevents a second implicit package restore.
+                 */
+                sh '''
+                    set -eux
+
+                    dotnet build "$SOLUTION_FILE" \
+                        --configuration "$CONFIGURATION" \
+                        --no-restore
+                '''
+            }
+        }
+
+        stage('Test') {
+            steps {
+                /*
+                 * Execute all unit tests.
+                 *
+                 * --no-build uses the assemblies produced by the Build stage.
+                 *
+                 * The test results are written in Visual Studio TRX format.
+                 */
+                sh '''
+                    set -eux
+
+                    dotnet test "$TEST_PROJECT" \
+                        --configuration "$CONFIGURATION" \
+                        --no-build \
+                        --logger "trx;LogFileName=portable-cli-tests.trx" \
+                        --results-directory "$TEST_RESULTS_DIRECTORY"
+                '''
+            }
+        }
+
+        stage('Publish') {
+            steps {
+                /*
+                 * Publish a framework-dependent Linux application.
+                 *
+                 * Because this is a framework-dependent deployment,
+                 * .NET 10 must also be installed on the target machine.
+                 *
+                 * --no-build reuses the successful Release build.
+                 */
+                sh '''
+                    set -eux
+
+                    dotnet publish "$APP_PROJECT" \
+                        --configuration "$CONFIGURATION" \
+                        --no-build \
+                        --output "$PUBLISH_DIRECTORY"
+
+                    echo "Published files:"
+                    find "$PUBLISH_DIRECTORY" \
+                        -maxdepth 2 \
+                        -type f \
+                        -print
+                '''
+            }
+        }
+
+        stage('Smoke Test') {
+            steps {
+                /*
+                 * Run the published CLI application once.
+                 *
+                 * This verifies that the published output can actually start.
+                 *
+                 * Replace PortableCliApp.dll if your generated assembly has
+                 * a different name.
+                 */
+                sh '''
+                    set -eux
+
+                    dotnet \
+                        "$PUBLISH_DIRECTORY/PortableCliApp.dll"
+                '''
+            }
+        }
+
+        stage('Archive Artifacts') {
+            steps {
+                /*
+                 * Preserve the published application and test-result files
+                 * in Jenkins after the workspace is cleaned.
+                 *
+                 * Jenkins calculates fingerprints that can be used to trace
+                 * the archived files back to this build.
+                 */
+                archiveArtifacts(
+                    artifacts: 'artifacts/**/*',
+                    fingerprint: true,
+                    onlyIfSuccessful: true
+                )
+            }
+        }
+
+        stage('Deploy') {
+            /*
+             * Deployment occurs only when:
+             *
+             * 1. DEPLOY_APPLICATION was selected when the job was started.
+             * 2. The branch being built is main.
+             *
+             * For a normal single-branch Pipeline, GIT_BRANCH may contain
+             * "origin/main". For a Multibranch Pipeline, BRANCH_NAME is
+             * normally "main".
+             */
+            when {
+                allOf {
+                    expression {
+                        return params.DEPLOY_APPLICATION
+                    }
+
+                    expression {
+                        return env.BRANCH_NAME == 'main' ||
+                               env.GIT_BRANCH == 'origin/main' ||
+                               env.GIT_BRANCH == 'main'
+                    }
+                }
+            }
+
+            steps {
+                /*
+                 * Copy the published files to a deployment directory.
+                 *
+                 * install -d creates the directory when it does not exist.
+                 * This command intentionally does not use sudo. Configure
+                 * the directory permissions before running the Pipeline.
+                 */
+                sh '''
+                    set -eux
+
+                    install -d "$DEPLOY_DIRECTORY"
+
+                    rm -rf "${DEPLOY_DIRECTORY:?}/"*
+
+                    cp -a \
+                        "$PUBLISH_DIRECTORY/." \
+                        "$DEPLOY_DIRECTORY/"
+
+                    echo "Application deployed to:"
+                    echo "$DEPLOY_DIRECTORY"
+
+                    echo "Deployed files:"
+                    find "$DEPLOY_DIRECTORY" \
+                        -maxdepth 2 \
+                        -type f \
+                        -print
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'PortableCliApp Pipeline completed successfully.'
+        }
+
+        unstable {
+            echo 'PortableCliApp Pipeline completed with an unstable result.'
+        }
+
+        failure {
+            echo 'PortableCliApp Pipeline failed. Review the failed stage and console output.'
+        }
+
+        always {
+            /*
+             * Archive test results even when the test stage fails.
+             *
+             * allowEmptyArchive is necessary because an earlier failure,
+             * such as Restore or Build, may prevent creation of the file.
+             */
+            archiveArtifacts(
+                artifacts: 'artifacts/test-results/**/*.trx',
+                allowEmptyArchive: true
+            )
+        }
+
+        cleanup {
+            /*
+             * Delete the Jenkins workspace after the build.
+             *
+             * Published files remain accessible as archived Jenkins
+             * artifacts.
+             */
+            deleteDir()
+        }
+    }
+}

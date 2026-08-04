@@ -1,0 +1,26 @@
+@DotNetWebApp_HostAddress = http://localhost:5000
+
+### Get application information
+GET {{DotNetWebApp_HostAddress}}/
+Accept: application/json
+
+### Get all products
+GET {{DotNetWebApp_HostAddress}}/products
+Accept: application/json
+
+### Get one product
+GET {{DotNetWebApp_HostAddress}}/products/2
+Accept: application/json
+
+### Get a product that does not exist
+GET {{DotNetWebApp_HostAddress}}/products/999
+Accept: application/json
+
+### Create a product
+POST {{DotNetWebApp_HostAddress}}/products
+Content-Type: application/json
+
+{
+  "name": "Portable SSD",
+  "quantity": 14
+}
